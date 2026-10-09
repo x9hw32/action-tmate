@@ -3,8 +3,8 @@ name: SSH to Runner
 on:
   workflow_dispatch:
     inputs:
-      os:
-        description: 'Операционная система раннера'
+      runner:
+        description: 'Выбор машины / ОС'
         required: true
         default: 'ubuntu-latest'
         type: choice
@@ -12,12 +12,72 @@ on:
           - 'ubuntu-latest'
           - 'ubuntu-24.04'
           - 'ubuntu-22.04'
+          - 'macos-15'
+          - 'macos-14'
+          - 'macos-13'
+          - 'windows-latest'
+          - 'windows-2022'
+          - 'custom'
+      custom_runner:
+        description: 'Если выбран "custom", введи имя раннера (например self-hosted или кастомный тег)'
+        required: false
+        default: ''
+        type: string
+      container:
+        description: 'Docker-контейнер (оставь пустым для обычной ОС, либо введи: archlinux:latest, fedora:latest, debian:latest, ubuntu:latest, alpine:latest, kalilinux/kali-rolling)'
+        required: false
+        default: ''
+        type: string
+      maximize_disk:
+        description: 'Очистить диск от мусора (освобождает до ~65-70 GB на Ubuntu)'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
-  ssh:
-    name: Interactive SSH Session
-    runs-on: ${{ inputs.os || 'ubuntu-latest' }}
+  host-session:
+    name: SSH on Host
+    if: ${{ !inputs.container }}
+    runs-on: ${{ inputs.runner == 'custom' && inputs.custom_runner || inputs.runner }}
     steps:
+      - name: Free up disk space
+        if: ${{ inputs.maximize_disk && runner.os == 'Linux' }}
+        run: |
+          echo "=== Диск до очистки ==="
+          df -h /
+          echo "Удаление предустановленных тяжелых SDK (Android, .NET, Haskell, Azure, Boost)..."
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/az /usr/local/share/boost /usr/local/share/powershell 2>/dev/null || true
+          sudo docker image prune -a -f 2>/dev/null || true
+          echo "=== Диск после очистки ==="
+          df -h /
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Session
+        uses: owenthereal/action-upterm@v2
+        with:
+          limit-access-to-actor: true
+
+  container-session:
+    name: SSH in Container (${{ inputs.container }})
+    if: ${{ inputs.container }}
+    runs-on: ${{ inputs.runner == 'custom' && inputs.custom_runner || inputs.runner }}
+    container:
+      image: ${{ inputs.container }}
+    steps:
+      - name: Install dependencies in container
+        run: |
+          if command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y openssh-client curl git sudo
+          elif command -v pacman >/dev/null 2>&1; then
+            pacman -Syu --noconfirm openssh curl git sudo
+          elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y openssh-clients curl git sudo
+          elif command -v apk >/dev/null 2>&1; then
+            apk add openssh-client curl git sudo bash
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
