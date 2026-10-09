@@ -1,0 +1,27 @@
+name: SSH to Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'Операционная система раннера'
+        required: true
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - 'ubuntu-latest'
+          - 'ubuntu-24.04'
+          - 'ubuntu-22.04'
+
+jobs:
+  ssh:
+    name: Interactive SSH Session
+    runs-on: ${{ inputs.os || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Launch tmate terminal
+        uses: ./
+        with:
+          limit-access-to-actor: false
