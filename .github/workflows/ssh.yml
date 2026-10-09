@@ -22,6 +22,35 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Launch tmate terminal
+        id: tmate
         uses: ./
         with:
+          detached: true
           limit-access-to-actor: false
+          connect-timeout-seconds: 1800
+
+      - name: Show Connection Links
+        run: |
+          echo "## 🚀 Подключение к раннеру готово!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 Web Terminal (Кликни, чтобы открыть в браузере):" >> $GITHUB_STEP_SUMMARY
+          echo "**[👉 НАЖМИ СЮДА, ЧТОБЫ ОТКРЫТЬ ТЕРМИНАЛ В БРАУЗЕРЕ](${{ steps.tmate.outputs.web-url }})**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 💻 Команда для SSH (в локальном терминале):" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.tmate.outputs.ssh-command }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Чтобы завершить сессию, выполните в консоли раннера: \`touch /continue\` или нажмите кнопку Cancel workflow на GitHub.*" >> $GITHUB_STEP_SUMMARY
+
+      - name: Keep session alive
+        run: |
+          echo "================================================================"
+          echo "  Web shell: ${{ steps.tmate.outputs.web-url }}"
+          echo "  SSH:       ${{ steps.tmate.outputs.ssh-command }}"
+          echo "================================================================"
+          echo "Сессия активна! Ожидание (выполните 'touch /continue' для выхода)..."
+          while [ ! -f /continue ]; do
+            sleep 5
+          done
